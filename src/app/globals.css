@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  /* 양피지/토탄색 다크 팔레트 */
+  --color-ink-950: #0c0a08;
+  --color-ink-900: #14110d;
+  --color-ink-800: #1f1a14;
+  --color-ink-700: #2e261c;
+  --color-ink-600: #423728;
+
+  --color-parchment-50: #f7f0e1;
+  --color-parchment-100: #eadfc8;
+  --color-parchment-300: #c9b892;
+  --color-parchment-500: #9c8964;
+  --color-parchment-700: #6b5c3f;
+
+  --color-gold-400: #d4af37;
+  --color-gold-600: #9a7d1e;
+
+  /* 난이도 색상 — MMO 희귀도 관례를 그대로 차용해서 학습이 필요 없게 한다.
+     2차의 아이템 등급(common..legendary)이 이 스케일을 그대로 재사용한다. */
+  --color-tier-trivial: #9ca3af;
+  --color-tier-easy: #4ade80;
+  --color-tier-normal: #60a5fa;
+  --color-tier-hard: #c084fc;
+  --color-tier-legendary: #fb923c;
+
+  --font-display: var(--font-cinzel), serif;
+  --font-sans: var(--font-noto-kr), system-ui, sans-serif;
+}
+
+body {
+  background: radial-gradient(
+    ellipse at top,
+    var(--color-ink-800),
+    var(--color-ink-950) 70%
+  );
+  background-attachment: fixed;
+  color: var(--color-parchment-100);
+  font-family: var(--font-sans);
+}
+
+/* 획득 XP 가 붙을 때 잠깐 떠오르는 연출 */
+@keyframes xp-flare {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}

@@ -1,0 +1,55 @@
+# /etc/systemd/system/to-do-list-rpg.service
+#
+# 설치:
+#   sudo cp deploy/to-do-list-rpg.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now to-do-list-rpg
+#
+# 경로/사용자가 다르면 아래 User, WorkingDirectory, EnvironmentFile 을 고칠 것.
+
+[Unit]
+Description=TO-DO LIST RPG (Next.js)
+After=network-online.target
+Wants=network-online.target
+# DB 가 같은 서버에 있다면 주석을 풀어 기동 순서를 맞춘다.
+# After=postgresql.service
+# Requires=postgresql.service
+
+[Service]
+Type=simple
+User=rpg
+Group=rpg
+WorkingDirectory=/srv/to-do-list-rpg
+
+# 비밀값은 여기 들어간다. 리포지토리에 커밋하지 말 것 (chmod 600, owner root).
+EnvironmentFile=/etc/to-do-list-rpg.env
+Environment=NODE_ENV=production
+
+# 바인딩 주소·포트는 반드시 -H/-p 플래그로 준다.
+#
+# HOSTNAME 환경변수는 standalone 빌드의 server.js 만 읽는다 — next start 는 무시하고
+# 0.0.0.0 에 바인딩한다. Environment=HOSTNAME=127.0.0.1 로 막았다고 착각하면
+# 방화벽이 열리는 순간 Nginx 와 TLS 를 건너뛴 평문 접속이 가능해진다.
+# (실측: HOSTNAME 만 주면 *:3000, -H 를 주면 127.0.0.1:3000)
+ExecStart=/usr/bin/npm run start -- -H 127.0.0.1 -p 3000
+
+Restart=always
+RestartSec=5
+# 부팅 직후 DB 가 아직 안 떴을 때 무한 재시작으로 로그를 채우지 않게
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rpg
+
+# 최소 권한
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+# Next 는 .next/cache 에 써야 하므로 앱 디렉토리만 쓰기 허용
+ReadWritePaths=/srv/to-do-list-rpg/.next
+
+[Install]
+WantedBy=multi-user.target
