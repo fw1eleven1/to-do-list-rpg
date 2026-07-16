@@ -7,8 +7,8 @@ import { DIFFICULTIES, DIFFICULTY_BASE_XP, DIFFICULTY_GUIDE, KO_DIFFICULTY } fro
 // 크롤러가 매번 DB 를 깨우고 정적 캐시가 사라진다. 로그인한 사람이 눌러도
 // /signin 이 세션을 보고 /quests 로 넘겨주므로 흐름은 그대로다.
 export const metadata: Metadata = {
-	// absolute — 루트의 '%s — TO-DO LIST RPG' 템플릿이 붙으면 브랜드가 두 번 나온다.
-	title: { absolute: 'To do List를 퀘스트처럼 — TO-DO LIST RPG' },
+	// absolute — 루트의 '%s — TO-DO Quest' 템플릿이 붙으면 브랜드가 두 번 나온다.
+	title: { absolute: 'To do List를 퀘스트처럼 — TO-DO Quest' },
 	description:
 		'To do List를 적으면 퀘스트로 바꿔줍니다. 난이도에 따라 경험치를 받고, 완료할수록 레벨이 오르는 무료 할 일 관리 앱.',
 	keywords: ['할 일 관리', '투두리스트', '게이미피케이션', 'RPG', '퀘스트', '습관 만들기', 'AI 투두'],
@@ -16,8 +16,8 @@ export const metadata: Metadata = {
 	openGraph: {
 		type: 'website',
 		url: '/',
-		siteName: 'TO-DO LIST RPG',
-		title: 'TO-DO LIST RPG',
+		siteName: 'TO-DO Quest',
+		title: 'TO-DO Quest',
 		description: 'To do List를 적으면 퀘스트로 바꿔줍니다. 완료하고 경험치를 쌓아 레벨을 올리세요.',
 	},
 };
@@ -66,7 +66,7 @@ const jsonLd = {
 	'@graph': [
 		{
 			'@type': 'WebApplication',
-			name: 'TO-DO LIST RPG',
+			name: 'TO-DO Quest',
 			applicationCategory: 'ProductivityApplication',
 			operatingSystem: 'Web',
 			description: metadata.description,
@@ -92,7 +92,7 @@ export default function LandingPage() {
 			<script type='application/ld+json' dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
 			<header className='mx-auto flex w-full max-w-4xl items-center justify-between px-5 py-5'>
-				<span className='font-display text-lg tracking-wide text-gold-400'>TO-DO LIST RPG</span>
+				<span className='font-display text-lg tracking-wide text-gold-400'>TO-DO Quest</span>
 				<nav className='flex items-center gap-4 text-sm'>
 					<Link href='/signin' className='text-parchment-500 transition hover:text-parchment-300'>
 						로그인

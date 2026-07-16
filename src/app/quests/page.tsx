@@ -37,7 +37,7 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
 		<main className='mx-auto w-full max-w-2xl flex-1 space-y-5 px-5 py-8'>
 			<header className='flex items-center justify-between'>
 				<h1 className='font-display text-xl tracking-wide text-gold-400'>
-					<Link href='/quests'>TO-DO LIST RPG</Link>
+					<Link href='/quests'>TO-DO Quest</Link>
 				</h1>
 				<div className='flex items-center gap-3'>
 					{canChangePassword && <ChangePasswordButton />}

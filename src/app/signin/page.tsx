@@ -11,7 +11,7 @@ import { isGoogleEnabled } from '@/lib/env';
 // 두 페이지가 같은 키워드로 경쟁하면 랜딩의 순위만 깎아먹는다.
 export const metadata: Metadata = {
   title: '로그인',
-  description: 'TO-DO LIST RPG 에 로그인하고 퀘스트 게시판으로 이동합니다.',
+  description: 'TO-DO Quest 에 로그인하고 퀘스트 게시판으로 이동합니다.',
   robots: { index: false, follow: true },
 };
 
@@ -30,7 +30,7 @@ export default async function SignInPage({
     <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center gap-6 px-6 py-16">
       <header className="text-center">
         <h1 className="font-display text-3xl tracking-wide text-gold-400">
-          <Link href="/">TO-DO LIST RPG</Link>
+          <Link href="/">TO-DO Quest</Link>
         </h1>
         <p className="mt-2 text-sm text-parchment-500">길드에 등록된 모험가만 의뢰를 받을 수 있습니다.</p>
       </header>
