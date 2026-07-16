@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signIn } from 'next-auth/react';
-import { useState, useTransition } from 'react';
+import { type FormEvent, useState, useTransition } from 'react';
 
 import { signUpAction } from '@/actions/auth';
 import { signInErrorMessage } from '@/lib/auth-errors';
@@ -33,8 +33,12 @@ export function SignInForm() {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  function onSubmit(formData: FormData) {
+  // action={fn} 대신 onSubmit 을 쓴다: React 19 는 form action 이 끝나면 폼을 자동으로 비우는데,
+  // 로그인 실패로 문구만 띄우고 머물 때도 초기화가 일어나 입력한 내용이 날아간다. preventDefault 로 막는다.
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setError(null);
+    const formData = new FormData(e.currentTarget);
     start(async () => {
       // redirect:false 라야 실패 시 에러 페이지로 튕기지 않고 폼 위에 문구를 띄울 수 있다.
       const res = await signIn('credentials', {
@@ -53,7 +57,7 @@ export function SignInForm() {
   }
 
   return (
-    <form action={onSubmit} className="space-y-3">
+    <form onSubmit={onSubmit} className="space-y-3">
       <input name="email" type="email" required placeholder="이메일" autoComplete="email" className={field} />
       <input
         name="password"
@@ -82,8 +86,12 @@ export function SignUpForm() {
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
-  function onSubmit(formData: FormData) {
+  // action={fn} 대신 onSubmit 을 쓴다: React 19 는 form action 이 끝나면 폼을 자동으로 비우는데,
+  // 검증 실패로 early-return 해도 초기화가 일어나 입력한 내용이 날아간다. preventDefault 로 그걸 막는다.
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setError(null);
+    const formData = new FormData(e.currentTarget);
     const nickname = String(formData.get('nickname') ?? '');
     const email = String(formData.get('email') ?? '');
     const password = String(formData.get('password') ?? '');
@@ -113,7 +121,7 @@ export function SignUpForm() {
   }
 
   return (
-    <form action={onSubmit} className="space-y-3">
+    <form onSubmit={onSubmit} className="space-y-3">
       <input
         name="nickname"
         required

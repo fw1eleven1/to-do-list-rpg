@@ -185,8 +185,6 @@ export default function LandingPage() {
 					</Link>
 				</section>
 			</main>
-
-			<footer className='border-t border-ink-800 px-5 py-6 text-center text-xs text-parchment-700'>TO-DO LIST RPG</footer>
 		</>
 	);
 }

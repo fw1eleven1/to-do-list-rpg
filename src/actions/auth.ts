@@ -8,7 +8,7 @@ import { db } from '@/db';
 import { characters, userCredentials, users } from '@/db/schema';
 import { getUser } from '@/lib/guard';
 import { nicknameSchema } from '@/lib/nickname';
-import { hashPassword } from '@/lib/password';
+import { hashPassword, verifyPassword } from '@/lib/password';
 import { fail, ok, type ActionResult } from './types';
 
 const signUpInput = z
@@ -116,6 +116,75 @@ export async function updateNicknameAction(
   } catch (e) {
     console.error('updateNicknameAction 실패', e);
     return fail('INTERNAL', '닉네임을 바꾸지 못했습니다. 잠시 후 다시 시도해주세요.');
+  }
+}
+
+const changePasswordInput = z
+  .object({
+    currentPassword: z.string().min(1, '현재 비밀번호를 입력해주세요.'),
+    newPassword: z.string().min(8, '새 비밀번호는 8자 이상이어야 합니다.'),
+    newPasswordConfirm: z.string(),
+  })
+  // 클라이언트에서도 확인하지만 그건 편의일 뿐이다. 액션은 직접 호출될 수 있으므로 여기가 진짜 관문이다.
+  .refine((v) => v.newPassword === v.newPasswordConfirm, {
+    message: '새 비밀번호가 일치하지 않습니다.',
+    path: ['newPasswordConfirm'],
+  })
+  .refine((v) => v.newPassword !== v.currentPassword, {
+    message: '새 비밀번호가 기존 비밀번호와 같습니다.',
+    path: ['newPassword'],
+  });
+
+/**
+ * 비밀번호 변경.
+ *
+ * user_credentials 행이 없으면(=Google 전용 계정) 바꿀 비밀번호 자체가 없다.
+ * 그런 계정에 비밀번호를 붙이는 건 계정 연결 흐름(2차)이지 변경이 아니므로 여기선 거절한다.
+ *
+ * 세션은 그대로 둔다: JWT 전략이라 서버측 무효화가 불가능하고, 비밀번호를 바꿔도
+ * 이미 로그인한 기기의 쿠키는 살아있다. 이 규모에서는 수용 가능한 절충이다.
+ */
+export async function changePasswordAction(
+  input: unknown,
+): Promise<ActionResult<null>> {
+  const user = await getUser();
+  if (!user?.id) return fail('UNAUTHORIZED', '로그인이 필요합니다.');
+
+  const parsed = changePasswordInput.safeParse(input);
+  if (!parsed.success) return fail('VALIDATION', parsed.error.issues[0].message);
+
+  try {
+    const [cred] = await db
+      .select({ passwordHash: userCredentials.passwordHash })
+      .from(userCredentials)
+      .where(eq(userCredentials.userId, user.id))
+      .limit(1);
+
+    if (!cred) {
+      return fail(
+        'NOT_FOUND',
+        'Google 로그인 계정에는 변경할 비밀번호가 없습니다.',
+      );
+    }
+
+    const matches = await verifyPassword(
+      parsed.data.currentPassword,
+      cred.passwordHash,
+    );
+    if (!matches) {
+      return fail('VALIDATION', '현재 비밀번호가 올바르지 않습니다.');
+    }
+
+    const passwordHash = await hashPassword(parsed.data.newPassword);
+    await db
+      .update(userCredentials)
+      .set({ passwordHash, updatedAt: new Date() })
+      .where(eq(userCredentials.userId, user.id));
+
+    return ok(null);
+  } catch (e) {
+    console.error('changePasswordAction 실패', e);
+    return fail('INTERNAL', '비밀번호를 바꾸지 못했습니다. 잠시 후 다시 시도해주세요.');
   }
 }
 

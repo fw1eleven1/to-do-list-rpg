@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
+import { ChangePasswordButton } from '@/components/auth/ChangePasswordButton';
 import { CharacterStatusBar } from '@/components/character/CharacterStatusBar';
 import { FeedbackProvider } from '@/components/feedback/FeedbackProvider';
 import { DEFAULT_TAB, QuestBoard, isBoardTab } from '@/components/quest/QuestBoard';
 import { QuestComposer } from '@/components/quest/QuestComposer';
+import { hasPasswordCredential } from '@/db/queries/auth';
 import { listQuests } from '@/db/queries/todos';
 import { signOut } from '@/lib/auth';
 import { requireUser } from '@/lib/guard';
@@ -21,7 +23,12 @@ export const metadata: Metadata = {
 // 갱신은 액션의 revalidatePath('/quests') 가 담당한다.
 export default async function QuestsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
 	const user = await requireUser();
-	const [profile, items, { tab }] = await Promise.all([getProfile(user.id), listQuests(user.id), searchParams]);
+	const [profile, items, canChangePassword, { tab }] = await Promise.all([
+		getProfile(user.id),
+		listQuests(user.id),
+		hasPasswordCredential(user.id),
+		searchParams,
+	]);
 
 	// 탭 목록은 QuestBoard 가 소유한다 — 여기서 키를 다시 나열하면 탭을 늘릴 때 어긋난다.
 	const activeTab = isBoardTab(tab) ? tab : DEFAULT_TAB;
@@ -32,13 +39,19 @@ export default async function QuestsPage({ searchParams }: { searchParams: Promi
 				<h1 className='font-display text-xl tracking-wide text-gold-400'>
 					<Link href='/quests'>TO-DO LIST RPG</Link>
 				</h1>
-				<form
-					action={async () => {
-						'use server';
-						await signOut({ redirectTo: '/signin' });
-					}}>
-					<button className='text-xs text-parchment-500 transition hover:text-parchment-300'>로그아웃</button>
-				</form>
+				<div className='flex items-center gap-3'>
+					{canChangePassword && <ChangePasswordButton />}
+					<form
+						className='flex'
+						action={async () => {
+							'use server';
+							await signOut({ redirectTo: '/signin' });
+						}}>
+						<button className='text-xs leading-none text-parchment-500 transition hover:text-parchment-300'>
+							로그아웃
+						</button>
+					</form>
+				</div>
 			</header>
 
 			{/* 닉네임은 세션(JWT)이 아니라 DB 에서 온다 — 수정 직후에도 화면이 바로 맞는다.

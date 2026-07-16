@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Cinzel, Noto_Sans_KR } from 'next/font/google';
 
+import { Footer } from '@/components/layout/Footer';
 import { siteUrl } from '@/lib/env';
 import './globals.css';
 
@@ -36,7 +37,10 @@ export default function RootLayout({
       lang="ko"
       className={`${cinzel.variable} ${notoKr.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        {children}
+        <Footer />
+      </body>
     </html>
   );
 }
