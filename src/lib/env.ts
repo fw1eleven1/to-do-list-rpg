@@ -19,6 +19,10 @@ const schema = z
     OPENAI_BASE_URL: optional(),
 
     AUTH_SECRET: z.string().min(1),
+    // NextAuth 가 콜백 URL 을 만들 때 쓰는 값. 곧 "이 앱이 서비스되는 주소" 이므로
+    // canonical/OG 절대 URL 의 기준(metadataBase)으로도 그대로 쓴다.
+    // 별도의 SITE_URL 을 두면 배포마다 둘이 어긋나서 canonical 이 조용히 틀어진다.
+    AUTH_URL: z.url().default('http://localhost:3001'),
     // Google 자격증명은 선택. 채워져 있으면 Google 로그인 버튼이 켜지고,
     // 비어 있으면 이메일+비밀번호만으로 동작한다.
     // 필수로 잡으면 콘솔에서 OAuth 앱을 만들기 전까지 앱이 부팅조차 못 한다.
@@ -46,3 +50,6 @@ export const env = parsed.data;
 
 /** Google 로그인을 쓸 수 있는지. 로그인 화면에서 버튼 노출 여부를 정한다. */
 export const isGoogleEnabled = Boolean(env.AUTH_GOOGLE_ID);
+
+/** canonical / OG / sitemap / robots 가 공유하는 절대 URL 기준. 끝의 슬래시는 없다. */
+export const siteUrl = new URL(env.AUTH_URL);

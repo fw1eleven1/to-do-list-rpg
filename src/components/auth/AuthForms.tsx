@@ -20,7 +20,7 @@ export function GoogleButton() {
     <button
       type="button"
       disabled={pending}
-      onClick={() => start(async () => void (await signIn('google', { redirectTo: '/' })))}
+      onClick={() => start(async () => void (await signIn('google', { redirectTo: '/quests' })))}
       className="w-full rounded border border-ink-600 bg-ink-800 px-4 py-2 text-parchment-100 transition hover:bg-ink-700 disabled:opacity-50"
     >
       {pending ? '이동 중…' : 'Google 로 계속하기'}
@@ -47,7 +47,7 @@ export function SignInForm() {
         setError(signInErrorMessage(res.error) ?? '로그인에 실패했습니다.');
         return;
       }
-      router.push('/');
+      router.push('/quests');
       router.refresh();
     });
   }
@@ -107,7 +107,7 @@ export function SignUpForm() {
         router.push('/signin');
         return;
       }
-      router.push('/');
+      router.push('/quests');
       router.refresh();
     });
   }

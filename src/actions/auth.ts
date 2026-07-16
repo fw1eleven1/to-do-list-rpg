@@ -111,7 +111,7 @@ export async function updateNicknameAction(
 
     if (!updated) return fail('NOT_FOUND', '계정을 찾을 수 없습니다.');
 
-    revalidatePath('/');
+    revalidatePath('/quests');
     return ok({ nickname });
   } catch (e) {
     console.error('updateNicknameAction 실패', e);

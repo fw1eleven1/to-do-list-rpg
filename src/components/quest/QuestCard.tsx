@@ -32,6 +32,13 @@ export function QuestCard({ item }: { item: QuestListItem }) {
           >
             {item.questTitle ?? item.todoTitle}
           </h3>
+          {/* 완료 표시는 제목 옆에 둔다 — 카드 맨 아래에 있으면 긴 의뢰서에 묻혀서,
+              전체 탭에서 완수 여부를 알려면 카드를 끝까지 읽어야 했다. */}
+          {completed && (
+            <span className="rounded-full border border-gold-600/50 px-2 py-0.5 text-[11px] font-medium tracking-wide text-gold-400">
+              완수
+            </span>
+          )}
         </div>
         <span
           className={`shrink-0 text-sm ${decayed ? 'text-red-400' : 'text-gold-400'}`}
@@ -67,11 +74,6 @@ export function QuestCard({ item }: { item: QuestListItem }) {
           <span className="ml-1 text-parchment-700">· 서기가 자리를 비워 임시 의뢰서로 붙였습니다</span>
         )}
       </p>
-
-      {/* 상태 표시. 획득 XP 내역은 우측 배지가 대신하므로 여기서는 상태만 밝힌다 —
-          이게 없으면 전체 탭에서 완료된 의뢰가 진행 중인 것과 구분되지 않는다
-          (파기는 취소선이 있지만 완료는 단서가 사라진다). */}
-      {completed && <p className="mt-2 text-xs text-gold-400">완수한 의뢰</p>}
 
       {cancelled && <p className="mt-2 text-xs text-parchment-700">파기된 의뢰</p>}
 

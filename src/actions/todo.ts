@@ -51,7 +51,7 @@ export async function createTodoAction(input: unknown): Promise<ActionResult<{ t
       generated,
     });
 
-    revalidatePath('/');
+    revalidatePath('/quests');
     return ok({ todoId: todo.id });
   } catch (e) {
     if (e instanceof ServiceError) return fail(e.code, e.message);
@@ -69,7 +69,7 @@ export async function completeTodoAction(input: unknown): Promise<ActionResult<C
 
   try {
     const result = await completeTodo(user.id, parsed.data.todoId);
-    revalidatePath('/');
+    revalidatePath('/quests');
     return ok(result);
   } catch (e) {
     if (e instanceof ServiceError) return fail(e.code, e.message);
@@ -89,7 +89,7 @@ export async function cancelTodoAction(input: unknown): Promise<ActionResult<{ t
 
   try {
     const todo = await cancelTodo(user.id, parsed.data.todoId);
-    revalidatePath('/');
+    revalidatePath('/quests');
     return ok({ todoId: todo.id });
   } catch (e) {
     if (e instanceof ServiceError) return fail(e.code, e.message);
