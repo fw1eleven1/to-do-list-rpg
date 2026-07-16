@@ -2,7 +2,7 @@
 #
 # 서버에서 실행하는 배포 스크립트.
 #
-#   cd /srv/to-do-list-rpg && ./scripts/deploy.sh
+#   cd /var/www/to-do-list-rpg && PROCESS_MANAGER=pm2 ./scripts/deploy.sh
 #
 # 순서가 중요하다: 빌드가 깨지면 마이그레이션도, 재시작도 하지 않는다.
 # 이미 돌고 있는 구버전이 계속 서비스한다.
@@ -11,9 +11,11 @@ set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVICE="to-do-list-rpg"
-ENV_FILE="/etc/${SERVICE}.env"
+# 앱 디렉토리의 .env 가 유일한 기준이다. gitignore 되어 있어 git pull 로 덮이지 않는다.
+ENV_FILE="${APP_DIR}/.env"
 # deploy/to-do-list-rpg.service 의 ExecStart(또는 ecosystem.config.js 의 args)에 있는 -p 값과 같아야 한다.
-APP_PORT=3000
+# 3000 은 같은 서버의 다른 Next 앱이 쓰고 있다.
+APP_PORT=3002
 
 # 프로세스 관리자: systemd(기본) | pm2
 #   PROCESS_MANAGER=pm2 ./scripts/deploy.sh
@@ -33,8 +35,8 @@ echo "▶ 3/5 빌드"
 npm run build
 
 echo "▶ 4/5 마이그레이션"
-# systemd 가 아니라 이 셸에서 도는 스크립트라 환경변수를 직접 넣어준다.
-# EnvironmentFile 과 같은 파일을 읽어서 두 곳이 갈라지지 않게 한다.
+# db:migrate 는 .env.local 만 읽는다 — 서버의 .env 는 스스로 읽지 않으므로 여기서 셸에 올려준다.
+# PM2 도 start 시점의 셸 환경을 물려받으므로 같은 파일을 쓴다.
 set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
