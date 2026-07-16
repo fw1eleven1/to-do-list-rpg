@@ -1,9 +1,9 @@
 # 배포 가이드
 
-리눅스 VM 에 Node 로 직접 구동하는 기준. 앞에 Nginx 를 둔다.
+리눅스 VM 에 Node 로 직접 구동하는 기준. 앞에 Cloudflare 와 Nginx 를 둔다.
 
 ```
-인터넷 ──8080/http──▶ Nginx ──▶ 127.0.0.1:3002 (next start) ──▶ PostgreSQL 17 (localhost:5432)
+브라우저 ──https──▶ Cloudflare ──https(Full strict)──▶ Nginx:443 ──▶ 127.0.0.1:3002 (next start) ──▶ PostgreSQL 17 (localhost:5432)
 ```
 
 ## 지금 어디에 떠 있나
@@ -11,14 +11,16 @@
 | | |
 |---|---|
 | 서버 | `js` (141.164.63.179, Vultr, Ubuntu 24.04) |
-| 주소 | http://141.164.63.179:8080 |
+| 주소 | https://rpg.pjsk.kr (Cloudflare 프록시 뒤) |
 | 앱 경로 | `/var/www/to-do-list-rpg` |
 | 구동 | PM2 (`root`), Node 24 (nvm) |
 | DB | 같은 서버의 PostgreSQL 17, localhost 전용 |
+| TLS | Cloudflare Origin 인증서(2041 만료, 갱신 불필요) + SSL 모드 Full (strict) |
 
 **이 서버에는 다른 앱이 이미 산다.** `my-btc-trading`(Next 16)이 **포트 3000** 과 **IP:80** 을
-쓰고 있다. 그래서 이 앱은 **3002**(앱) / **8080**(Nginx) 을 쓴다. 포트를 3000 으로 되돌리면
-두 앱이 같은 포트를 물어 한쪽이 계속 죽는다. 개발 서버가 3001 인 것도 같은 이유다.
+쓰고 있다. 그래서 이 앱은 **3002**(앱) 를 쓴다. Nginx 는 이름 기반 가상호스트로
+`server_name rpg.pjsk.kr` 블록(443)을 따로 두어 btc 앱(80 default)과 공존한다. 포트를
+3000 으로 되돌리면 두 앱이 같은 포트를 물어 한쪽이 계속 죽는다. 개발 서버가 3001 인 것도 같은 이유다.
 
 포트를 바꾸려면 **세 곳을 같이** 고쳐야 한다:
 
@@ -42,7 +44,7 @@
 - **Node 20.12 이상** (`package.json` 의 `engines`). Next 16 은 20.9+ 를 요구하지만 이 앱은
   `process.loadEnvFile` 을 써서 20.12 가 진짜 하한이다. 22 LTS 나 24 를 권한다.
 - **PostgreSQL 17** (다른 메이저도 대체로 되지만 개발/검증은 17 로 했다)
-- Nginx, git. (도메인을 붙일 때 certbot)
+- Nginx, git. (TLS 는 Cloudflare Origin 인증서를 쓰므로 certbot 은 필요 없다 — §6)
 
 ---
 
@@ -60,15 +62,19 @@ git clone https://github.com/fw1eleven1/to-do-list-rpg.git /var/www/to-do-list-r
 이 서버가 그렇게 안 된 이유는 **Node 가 root 의 nvm(`/root/.nvm`) 안에만 있어서** 다른 계정에서는
 보이지 않기 때문이다. 계정을 분리하려면 먼저 시스템 전역 Node 를 깔아야 한다(NodeSource 등).
 
-방화벽은 **80/443/8080 만** 연다. 앱(3002)과 Postgres(5432)는 절대 밖으로 열지 않는다.
+방화벽은 **80/443 만** 연다. 앱(3002)과 Postgres(5432)는 절대 밖으로 열지 않는다.
 
 ```bash
 ufw allow OpenSSH
 ufw allow 'Nginx Full'      # 80, 443
-ufw allow 8080/tcp          # 이 앱
 ufw enable
 ufw status                  # 3002, 5432 가 없어야 정상
 ```
+
+> **하드닝(선택):** 오리진은 Cloudflare 를 거치지 않고 IP:443 으로 직접 붙어도 응답한다
+> (인증서가 Cloudflare Origin CA 라 브라우저는 경고를 띄우지만 TCP 는 열린다). 원한다면
+> 80/443 을 Cloudflare IP 대역으로만 제한하거나, Cloudflare 의 Authenticated Origin Pull(mTLS)
+> 을 켜서 CF 를 거치지 않은 연결을 오리진에서 거부할 수 있다.
 
 ## 2. DB 만들기
 
@@ -120,11 +126,11 @@ nano .env
   개발용(`.env.local`)과 같은 값을 쓰면 개발 PC 가 털렸을 때 프로덕션 세션이 위조된다.
   **개발용 `.env.local` 을 서버로 복사해오는 것이 가장 흔한 실수다** — `AUTH_URL` 이 localhost 로,
   `AUTH_SECRET` 이 개발용 그대로 남는다.
-- **`AUTH_URL`** 은 공개 주소, 뒤에 슬래시 없이. 지금은 `http://141.164.63.179:8080`.
-- **`AUTH_TRUST_HOST=true`** — 리버스 프록시 뒤에서 도는 self-host 배포라 필요하다.
-  없으면 NextAuth 가 `X-Forwarded-Proto` 를 믿지 않아 콜백 주소를 틀리게 만든다.
+- **`AUTH_URL`** 은 공개 주소, 뒤에 슬래시 없이. 지금은 `https://rpg.pjsk.kr`.
+- **`AUTH_TRUST_HOST=true`** — 리버스 프록시(Cloudflare + Nginx) 뒤에서 도는 self-host 배포라
+  필요하다. 없으면 NextAuth 가 `X-Forwarded-Proto` 를 믿지 않아 콜백 주소를 http 로 만든다.
 - **Google 을 쓴다면** 콘솔의 승인된 리디렉션 URI 에
-  `http://141.164.63.179:8080/api/auth/callback/google` 를 추가한다. 개발용(`localhost:3001`)과 별개다.
+  `https://rpg.pjsk.kr/api/auth/callback/google` 를 추가한다. 개발용(`localhost:3001`)과 별개다.
   비워두면 Google 버튼이 숨고 이메일+비밀번호만 동작한다 — 나중에 켜도 된다.
 
 > **이 파일은 두 곳에서 읽힌다.** `deploy.sh` 와 PM2 기동 셸이 `source` 로 읽고(셸 문법),
@@ -195,7 +201,7 @@ pm2 env <id> | grep -E 'DATABASE_URL|AUTH_URL'
 > **함정 2 — `HOSTNAME` 으로는 못 막는다.**
 > `HOSTNAME` 환경변수는 standalone 빌드의 `server.js` 만 읽는다. `next start` 는 무시하고
 > `0.0.0.0` 에 바인딩한다. `ecosystem.config.js` 의 `args` 에 있는 `-H 127.0.0.1` 이
-> 유일하게 동작하는 방법이다. 이 플래그를 지우면 `*:3002` 로 열려서, 8080 을 거치지 않고
+> 유일하게 동작하는 방법이다. 이 플래그를 지우면 `*:3002` 로 열려서, Nginx 를 거치지 않고
 > 앱에 직접 붙을 수 있게 된다.
 
 ### 재부팅 후 자동 시작
@@ -250,7 +256,46 @@ pm2 reload to-do-list-rpg            # 재시작
 
 ---
 
-## 6. Nginx
+## 6. Nginx + TLS (Cloudflare)
+
+TLS 는 **Cloudflare 가 처리한다.** 브라우저↔Cloudflare 는 Cloudflare 의 엣지 인증서로 https 이고,
+Cloudflare↔오리진 구간은 **Cloudflare Origin 인증서**로 암호화한다(SSL 모드 Full strict).
+certbot / Let's Encrypt 는 쓰지 않는다.
+
+### Origin 인증서 발급 (오리진 개인키를 밖으로 내보내지 않는 방식)
+
+개인키·CSR 을 **서버에서** 만들고, Cloudflare 에는 CSR 만 넣는다. 개인키는 서버 밖으로 안 나간다.
+
+```bash
+mkdir -p /etc/ssl/rpg-origin && chmod 700 /etc/ssl/rpg-origin
+cd /etc/ssl/rpg-origin
+openssl req -new -newkey rsa:2048 -nodes \
+  -keyout origin.key -out origin.csr \
+  -subj "/CN=rpg.pjsk.kr" -addext "subjectAltName=DNS:rpg.pjsk.kr"
+chmod 600 origin.key
+cat origin.csr        # 이 CSR 을 Cloudflare 에 붙여넣는다
+```
+
+Cloudflare 대시보드에서:
+
+1. **SSL/TLS → Origin Server → Create Certificate**
+2. **"I have my own private key and CSR"** 를 고르고 위 CSR 을 붙여넣는다 (기본값인 Cloudflare
+   키 생성이 아니라 이걸 골라야 개인키가 노출되지 않는다).
+3. Hostnames `rpg.pjsk.kr`, 유효기간 15년 → Create.
+4. 나오는 **Origin Certificate** 를 서버 `/etc/ssl/rpg-origin/origin.crt` 로 저장 (644).
+5. **SSL/TLS → Overview → Full (strict)** 로 설정.
+
+인증서와 키의 짝을 반드시 확인한다 (두 해시가 같아야 nginx 가 로드한다):
+
+```bash
+openssl x509 -in /etc/ssl/rpg-origin/origin.crt -noout -pubkey | openssl md5
+openssl pkey -in /etc/ssl/rpg-origin/origin.key -pubout | openssl md5
+```
+
+### Nginx 설정
+
+`deploy/nginx.conf` 는 443(ssl) + 80(→https 리다이렉트) 블록을 담고 있다. `server_name rpg.pjsk.kr`
+이라 btc 앱(80 default_server)과 이름 기반으로 갈라진다.
 
 ```bash
 cd /var/www/to-do-list-rpg
@@ -259,39 +304,31 @@ ln -sf /etc/nginx/sites-available/to-do-list-rpg /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 ```
 
+> **`http2 on;` 은 nginx 1.25.1+ 문법이다.** 이 서버는 더 낮아서 `listen 443 ssl http2;` 로 쓴다.
+> `unknown directive "http2"` 로 `nginx -t` 가 깨지면 이 경우다.
+
 > **`sites-enabled/default` 를 지우지 말 것.** 이 서버에는 다른 사이트가 함께 산다.
 > 지우면 그쪽 기본 동작이 바뀔 수 있다.
 
 `X-Forwarded-Proto` 를 넘기는 세 줄이 설정에 있어야 한다. 없으면 로그인이 깨진다
 (`AUTH_TRUST_HOST` 와 짝이다).
 
-확인 — **둘 다** 살아 있어야 한다:
+확인:
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' http://141.164.63.179/            # 기존 btc 앱
-curl -s -o /dev/null -w '%{http_code}\n' http://141.164.63.179:8080/signin # 이 앱 → 200
-```
-
-### 도메인과 HTTPS 를 붙일 때
-
-**지금은 TLS 가 없다. 로그인 쿠키가 평문으로 오간다** — 임시 확인용이라는 뜻이다.
-도메인이 생기면:
-
-1. DNS A 레코드를 141.164.63.179 로 연결한다.
-2. `deploy/nginx.conf` 의 `listen 8080` → `listen 80`, `server_name` → 도메인.
-   (IP:80 은 btc 앱이 쓰므로, 도메인 기반 `server_name` 으로 갈라져야 공존한다.)
-3. `.env` 의 `AUTH_URL` 을 `https://<도메인>` 으로 바꾸고 `pm2 reload --update-env`.
-4. `certbot --nginx -d <도메인>` — certbot 이 443 블록과 80→443 리다이렉트를 채워 넣는다.
-5. Google 을 쓴다면 콘솔의 리디렉션 URI 도 새 주소로 바꾼다.
-6. `ufw delete allow 8080/tcp`
-
-```bash
-systemctl list-timers | grep certbot     # 자동 갱신 타이머 확인
+# 오리진 직접 (origin cert 라 -k 필요, 200 이면 정상)
+curl -s -o /dev/null -w '%{http_code}\n' -k -H 'Host: rpg.pjsk.kr' https://127.0.0.1/signin
+# Cloudflare 경유 (521 이면 SSL 모드가 Full strict 가 아니거나 오리진 443 이 안 뜬 것)
+curl -s -o /dev/null -w '%{http_code}\n' https://rpg.pjsk.kr/signin
+# btc 앱도 그대로 살아 있어야 한다
+curl -s -o /dev/null -w '%{http_code}\n' http://141.164.63.179/
+# 쿠키가 __Host-/Secure 로 나오면 https 인식이 맞다
+curl -sI https://rpg.pjsk.kr/api/auth/csrf | grep -i set-cookie
 ```
 
 ## 7. 동작 확인
 
-브라우저에서 `http://141.164.63.179:8080` 을 열고:
+브라우저에서 `https://rpg.pjsk.kr` 을 열고:
 
 1. 회원가입 → 메인으로 이동, 닉네임 표시
 2. 할 일 등록 → **판타지 퀘스트**가 붙는지 (임시 의뢰서 문구가 뜨면 AI 호출 실패 → §문제 해결)
@@ -428,11 +465,21 @@ curl -s https://api.openai.com/v1/models/$OPENAI_MODEL \
 
 십중팔구 프록시 헤더 문제다.
 
-- `AUTH_URL` 이 실제 공개 주소와 정확히 같은가 (포트까지, 슬래시 없음)
+- `AUTH_URL` 이 실제 공개 주소와 정확히 같은가 (`https://rpg.pjsk.kr`, 슬래시 없음)
 - `AUTH_TRUST_HOST=true` 가 있는가
 - Nginx 가 `X-Forwarded-Proto $scheme` 을 넘기는가
 
 Google 로그인만 안 된다면 콘솔의 리디렉션 URI 에 프로덕션 주소가 있는지 본다.
+
+### `https://rpg.pjsk.kr` 이 521 (Web server is down)
+
+Cloudflare 가 오리진에 붙지 못한 것이다. Full (strict) 모드에서 Cloudflare 는 오리진 **443** 으로
+붙는다. 확인 순서:
+
+- 오리진 443 이 떠 있는가 — `ss -tlnp | grep 443`
+- nginx 가 살아 있는가 — `nginx -t && systemctl reload nginx`
+- 인증서/키 짝이 맞는가 — §6 의 두 md5 해시 비교
+- Cloudflare SSL 모드가 Full (strict) 인가 (Flexible 이면 CF 는 오리진 80 으로 붙어 다르게 깨진다)
 
 ### "이미 다른 방식으로 가입된 이메일입니다"
 
@@ -468,8 +515,10 @@ psql "$DATABASE_URL" -c 'select 1'
 
 ## 알아둘 것
 
-- **지금은 TLS 가 없다.** `AUTH_URL` 이 `http` 라 로그인 쿠키가 평문으로 오간다.
-  실사용 전에 §6 의 "도메인과 HTTPS 를 붙일 때" 를 밟을 것.
+- **TLS 는 Cloudflare 가 처리한다.** 브라우저↔Cloudflare 는 엣지 인증서, Cloudflare↔오리진은
+  Origin 인증서(Full strict) — §6. Origin 인증서는 2041 까지라 갱신 걱정은 없지만,
+  **개인키 `/etc/ssl/rpg-origin/origin.key` 를 백업해두거나 유출 시 재발급할 것.**
+- **오리진이 IP:443 으로 직접 노출된다.** Cloudflare 를 우회한 접속을 막으려면 §1 하드닝 참고.
 - **앱이 `root` 로 돈다.** 권장 구성이 아니다 — §1 참고.
 - **세션이 JWT 라 서버측 로그아웃이 없다.** `AUTH_SECRET` 을 바꾸면 전원이 로그아웃된다 —
   세션을 강제로 끊어야 할 때 쓸 수 있는 유일한 수단이다.
