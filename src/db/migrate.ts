@@ -11,7 +11,7 @@ import { Pool } from 'pg';
 // main() 으로 감싸면 확장자나 모듈 방식에 관계없이 돈다.
 async function main() {
   // 개발에서는 .env.local 을 읽지만, 프로덕션 서버에는 그 파일이 없고 환경변수가 이미 주입돼 있다
-  // (systemd EnvironmentFile 등). 무조건 loadEnvFile 을 부르면 서버에서 ENOENT 로 죽는다.
+  // (deploy.sh 가 .env 를 source 해서 넣어준다). 무조건 loadEnvFile 을 부르면 서버에서 ENOENT 로 죽는다.
   if (!process.env.DATABASE_URL && existsSync('.env.local')) {
     process.loadEnvFile('.env.local');
   }

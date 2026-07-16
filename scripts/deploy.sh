@@ -2,7 +2,7 @@
 #
 # 서버에서 실행하는 배포 스크립트.
 #
-#   cd /var/www/to-do-list-rpg && PROCESS_MANAGER=pm2 ./scripts/deploy.sh
+#   cd /var/www/to-do-list-rpg && ./scripts/deploy.sh
 #
 # 순서가 중요하다: 빌드가 깨지면 마이그레이션도, 재시작도 하지 않는다.
 # 이미 돌고 있는 구버전이 계속 서비스한다.
@@ -13,15 +13,25 @@ APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SERVICE="to-do-list-rpg"
 # 앱 디렉토리의 .env 가 유일한 기준이다. gitignore 되어 있어 git pull 로 덮이지 않는다.
 ENV_FILE="${APP_DIR}/.env"
-# deploy/to-do-list-rpg.service 의 ExecStart(또는 ecosystem.config.js 의 args)에 있는 -p 값과 같아야 한다.
-# 3000 은 같은 서버의 다른 Next 앱이 쓰고 있다.
+# ecosystem.config.js 의 -p 값, deploy/nginx.conf 의 upstream 과 반드시 같아야 한다.
+# 3000 은 같은 서버의 다른 Next 앱(my-btc-trading)이 쓰고 있다.
 APP_PORT=3002
 
-# 프로세스 관리자: systemd(기본) | pm2
-#   PROCESS_MANAGER=pm2 ./scripts/deploy.sh
-PROCESS_MANAGER="${PROCESS_MANAGER:-systemd}"
-
 cd "$APP_DIR"
+
+# node 가 nvm 아래에만 있어서, ssh 로 비대화형 실행하면 PATH 에 없다 (nvm 초기화는 .bashrc 에
+# 있는데 그건 대화형 셸에서만 읽힌다). 그대로 두면 npm 부터 "command not found" 로 깨진다.
+if ! command -v node >/dev/null 2>&1; then
+  # nvm.sh 는 미설정 변수를 건드리므로 set -u 를 잠시 끈다
+  set +u
+  # shellcheck disable=SC1090
+  [ -s "$HOME/.nvm/nvm.sh" ] && source "$HOME/.nvm/nvm.sh"
+  set -u
+fi
+command -v node >/dev/null 2>&1 || {
+  echo "node 를 찾을 수 없습니다. nvm 설치를 확인하세요." >&2
+  exit 1
+}
 
 echo "▶ 1/5 코드 받기"
 git pull --ff-only
@@ -43,23 +53,12 @@ source "$ENV_FILE"
 set +a
 npm run db:migrate
 
-echo "▶ 5/5 재시작 (${PROCESS_MANAGER})"
-case "$PROCESS_MANAGER" in
-  systemd)
-    sudo systemctl restart "$SERVICE"
-    ;;
-  pm2)
-    # --update-env 가 없으면 PM2 가 옛 환경변수를 그대로 물려준다 (실측 확인).
-    # 위에서 source 한 값이 반영되지 않아 "env 를 고쳤는데 왜 안 바뀌지" 로 이어진다.
-    pm2 reload "$SERVICE" --update-env
-    # 재부팅 후 복원되는 스냅샷도 갱신한다
-    pm2 save --force
-    ;;
-  *)
-    echo "PROCESS_MANAGER 는 systemd 또는 pm2 여야 합니다 (받은 값: ${PROCESS_MANAGER})" >&2
-    exit 1
-    ;;
-esac
+echo "▶ 5/5 재시작"
+# --update-env 가 없으면 PM2 가 옛 환경변수를 그대로 물려준다 (실측 확인).
+# 위에서 source 한 값이 반영되지 않아 "env 를 고쳤는데 왜 안 바뀌지" 로 이어진다.
+pm2 reload "$SERVICE" --update-env
+# 재부팅 후 복원되는 스냅샷도 갱신한다
+pm2 save --force
 
 # 재시작 직후 바로 끝내면 부팅 실패를 놓친다. 실제로 응답하는지 확인한다.
 echo -n "   기동 대기"
@@ -75,9 +74,5 @@ done
 
 echo
 echo "❌ 30초 안에 응답하지 않습니다. 로그를 확인하세요:"
-if [ "$PROCESS_MANAGER" = "pm2" ]; then
-  echo "   pm2 logs ${SERVICE} --lines 50"
-else
-  echo "   sudo journalctl -u ${SERVICE} -n 50 --no-pager"
-fi
+echo "   pm2 logs ${SERVICE} --lines 50"
 exit 1
